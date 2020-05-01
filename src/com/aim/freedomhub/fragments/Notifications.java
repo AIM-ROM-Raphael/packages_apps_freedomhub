@@ -28,6 +28,8 @@ import android.os.SystemProperties;
 import android.os.UserHandle;
 import android.os.RemoteException;
 import android.os.ServiceManager;
+import android.provider.SearchIndexableResource;
+
 import androidx.preference.Preference;
 import androidx.preference.ListPreference;
 import androidx.preference.PreferenceCategory;
@@ -49,6 +51,17 @@ import com.android.internal.logging.nano.MetricsProto;
 
 import com.aim.freedomhub.preferences.SystemSettingMasterSwitchPreference;
 
+import com.android.settings.carbon.CustomSeekBarPreference;
+import com.aim.freedomhub.preferences.AppMultiSelectListPreference;
+import com.aim.freedomhub.preferences.ScrollAppsViewPreference;
+
+import java.util.Arrays;
+import java.util.ArrayList;
+import java.util.Collection;
+import java.util.Date;
+import java.util.HashMap;
+import java.util.List;
+
 public class Notifications extends SettingsPreferenceFragment
         implements OnPreferenceChangeListener {
 
@@ -61,6 +74,15 @@ public class Notifications extends SettingsPreferenceFragment
     private SystemSettingMasterSwitchPreference mEdgePulse;
     private CustomSeekBarPreference mHeadsUpSnoozeTime;
     private CustomSeekBarPreference mHeadsUpTimeOut;
+    private static final String PREF_STOPLIST_APPS_LIST_SCROLLER = "stoplist_apps_list_scroller";
+    private static final String PREF_BLACKLIST_APPS_LIST_SCROLLER = "blacklist_apps_list_scroller";
+    private static final String PREF_ADD_STOPLIST_PACKAGES = "add_stoplist_packages";
+    private static final String PREF_ADD_BLACKLIST_PACKAGES = "add_blacklist_packages";
+
+    private AppMultiSelectListPreference mAddStoplistPref;
+    private AppMultiSelectListPreference mAddBlacklistPref;
+    private ScrollAppsViewPreference mStoplistScroller;
+    private ScrollAppsViewPreference mBlacklistScroller;
 
     @Override
     public void onCreate(Bundle icicle) {
@@ -102,6 +124,37 @@ public class Notifications extends SettingsPreferenceFragment
         int headsUpTimeOut = Settings.System.getInt(getContentResolver(),
                 Settings.System.HEADS_UP_TIMEOUT, 5);
         mHeadsUpTimeOut.setValue(headsUpTimeOut / 1000); // milliseconds to seconds
+
+        mStoplistScroller = (ScrollAppsViewPreference) findPreference(PREF_STOPLIST_APPS_LIST_SCROLLER);
+        mBlacklistScroller = (ScrollAppsViewPreference) findPreference(PREF_BLACKLIST_APPS_LIST_SCROLLER);
+
+        mAddStoplistPref =  (AppMultiSelectListPreference) findPreference(PREF_ADD_STOPLIST_PACKAGES);
+        mAddBlacklistPref = (AppMultiSelectListPreference) findPreference(PREF_ADD_BLACKLIST_PACKAGES);
+
+        final String valuesStoplist = Settings.System.getString(resolver,
+                Settings.System.HEADS_UP_STOPLIST_VALUES);
+        if (!TextUtils.isEmpty(valuesStoplist)) {
+            Collection<String> stopList = Arrays.asList(valuesStoplist.split(":"));
+            mStoplistScroller.setVisible(true);
+            mStoplistScroller.setValues(stopList);
+            mAddStoplistPref.setValues(stopList);
+        } else {
+            mStoplistScroller.setVisible(false);
+        }
+
+        final String valuesBlacklist = Settings.System.getString(resolver,
+                Settings.System.HEADS_UP_BLACKLIST_VALUES);
+        if (!TextUtils.isEmpty(valuesBlacklist)) {
+            Collection<String> blackList = Arrays.asList(valuesBlacklist.split(":"));
+            mBlacklistScroller.setVisible(true);
+            mBlacklistScroller.setValues(blackList);
+            mAddBlacklistPref.setValues(blackList);
+        } else {
+            mBlacklistScroller.setVisible(false);
+        }
+
+        mAddStoplistPref.setOnPreferenceChangeListener(this);
+        mAddBlacklistPref.setOnPreferenceChangeListener(this);
     }
 
     @Override
@@ -117,6 +170,34 @@ public class Notifications extends SettingsPreferenceFragment
             Settings.System.putInt(getContentResolver(),
                     Settings.System.HEADS_UP_TIMEOUT,
                     headsUpTimeOut * 1000); // seconds to milliseconds
+            return true;
+        } else if (preference == mAddStoplistPref) {
+            Collection<String> valueList = (Collection<String>) objValue;
+            mStoplistScroller.setVisible(false);
+            if (valueList != null) {
+                Settings.System.putString(getContentResolver(),
+                        Settings.System.HEADS_UP_STOPLIST_VALUES,
+                        TextUtils.join(":", valueList));
+                mStoplistScroller.setVisible(true);
+                mStoplistScroller.setValues(valueList);
+            } else {
+                Settings.System.putString(getContentResolver(),
+                        Settings.System.HEADS_UP_STOPLIST_VALUES, "");
+            }
+            return true;
+        } else if (preference == mAddBlacklistPref) {
+            Collection<String> valueList = (Collection<String>) objValue;
+            mBlacklistScroller.setVisible(false);
+            if (valueList != null) {
+                Settings.System.putString(getContentResolver(),
+                        Settings.System.HEADS_UP_BLACKLIST_VALUES,
+                        TextUtils.join(":", valueList));
+                mBlacklistScroller.setVisible(true);
+                mBlacklistScroller.setValues(valueList);
+            } else {
+                Settings.System.putString(getContentResolver(),
+                        Settings.System.HEADS_UP_BLACKLIST_VALUES, "");
+            }
             return true;
         }
         return false;
